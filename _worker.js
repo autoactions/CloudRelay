@@ -4,7 +4,20 @@ export default {
         const downloadUrl = decodeURIComponent(url.pathname.substring(1));
 
         if (!downloadUrl) {
-            return new Response(JSON.stringify({ message: '缺少下载链接' }), {
+            return new Response(JSON.stringify({ message: 'Missing download URL' }), {
+                status: 400,
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                }
+            });
+        }
+
+        // Validate if downloadUrl is a valid URL
+        try {
+            new URL(downloadUrl);
+        } catch {
+            return new Response(JSON.stringify({ message: 'Invalid download URL' }), {
                 status: 400,
                 headers: { 
                     'Content-Type': 'application/json',
@@ -19,10 +32,10 @@ export default {
             const repo = env.GITHUB_REPO;
 
             if (!githubToken || !owner || !repo) {
-                throw new Error('缺少必要的环境变量配置');
+                throw new Error('Missing required environment variables');
             }
 
-            // 使用验证过的 repository dispatch API 调用方式
+            // Use the validated repository dispatch API call
             const response = await fetch(
                 `https://api.github.com/repos/${owner}/${repo}/dispatches`,
                 {
@@ -42,7 +55,7 @@ export default {
                 }
             );
 
-            // 记录响应信息用于调试
+            // Log response information for debugging
             console.log('GitHub API Response:', {
                 status: response.status,
                 statusText: response.statusText,
@@ -52,7 +65,7 @@ export default {
             if (response.ok || response.status === 204) {
                 return new Response(JSON.stringify({ 
                     success: true,
-                    message: '工作流已触发',
+                    message: 'Workflow triggered successfully',
                     url: downloadUrl
                 }), {
                     headers: { 
@@ -61,14 +74,14 @@ export default {
                     }
                 });
             } else {
-                throw new Error(`无法触发 GitHub Action: ${response.status} ${response.statusText}`);
+                throw new Error(`Failed to trigger GitHub Action: ${response.status} ${response.statusText}`);
             }
 
         } catch (error) {
             console.error('Error:', error);
             return new Response(JSON.stringify({ 
                 success: false,
-                message: '服务器错误',
+                message: 'Server error',
                 error: error.message
             }), {
                 status: 500,
@@ -79,4 +92,4 @@ export default {
             });
         }
     }
-}; 
+};

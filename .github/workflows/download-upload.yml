@@ -29,10 +29,7 @@ jobs:
       - name: 缓存 APT 包
         uses: actions/cache@v3
         with:
-          path: |
-            /var/cache/apt/archives/*.deb
-            !/var/cache/apt/archives/partial/
-            !/var/cache/apt/archives/lock
+          path: ~/.apt-cache
           key: ${{ runner.os }}-apt-${{ hashFiles('**/apt-packages.txt') }}
           restore-keys: |
             ${{ runner.os }}-apt-
@@ -49,6 +46,9 @@ jobs:
 
       - name: 安装依赖
         run: |
+          # 创建并使用自定义APT缓存目录
+          mkdir -p ~/.apt-cache
+
           # 检查 rclone 是否已缓存
           if ! command -v rclone &>/dev/null; then
             echo "安装 rclone..."
@@ -61,7 +61,10 @@ jobs:
           if ! command -v aria2c &>/dev/null; then
             echo "安装 aria2..."
             sudo apt-get update
-            sudo apt-get install -y aria2
+            # 使用自定义缓存目录
+            sudo apt-get -o dir::cache::archives=~/.apt-cache install -y aria2
+            # 复制下载的包到缓存目录以便缓存
+            sudo cp -f /var/cache/apt/archives/*.deb ~/.apt-cache/ 2>/dev/null || true
           else
             echo "使用缓存的 aria2"
           fi

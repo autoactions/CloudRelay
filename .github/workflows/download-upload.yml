@@ -38,7 +38,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            /usr/bin/rclone
+            ~/.local/bin/rclone
             ~/.config/rclone
           key: ${{ runner.os }}-rclone-${{ hashFiles('**/rclone.conf') }}
           restore-keys: |
@@ -49,13 +49,24 @@ jobs:
           # 创建并使用自定义APT缓存目录
           mkdir -p ~/.apt-cache
 
+          # 创建本地bin目录
+          mkdir -p ~/.local/bin
+          export PATH=$PATH:~/.local/bin
+
           # 检查 rclone 是否已缓存
-          if ! command -v rclone &>/dev/null; then
+          if [ ! -f ~/.local/bin/rclone ]; then
             echo "安装 rclone..."
-            curl https://rclone.org/install.sh | sudo bash
+            curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip
+            unzip rclone-current-linux-amd64.zip
+            cp rclone-*-linux-amd64/rclone ~/.local/bin/
+            chmod +x ~/.local/bin/rclone
+            rm -rf rclone-*-linux-amd64*
           else
             echo "使用缓存的 rclone"
           fi
+
+          # 确保 rclone 在 PATH 中
+          echo "~/.local/bin" >> $GITHUB_PATH
 
           # 安装 aria2
           if ! command -v aria2c &>/dev/null; then
@@ -74,7 +85,10 @@ jobs:
           mkdir -p ~/.config/rclone
           echo '${{ secrets.RCLONE_CONFIG }}' > ~/.config/rclone/rclone.conf
 
-          if ! rclone config show &>/dev/null; then
+          # 确保使用正确的 rclone 路径
+          export PATH=$PATH:~/.local/bin
+
+          if ! ~/.local/bin/rclone config show &>/dev/null; then
             echo "错误：rclone 配置无效"
             exit 1
           fi
@@ -132,8 +146,11 @@ jobs:
 
           echo "准备上传到: $REMOTE:$UPLOAD_PATH"
 
+          # 确保使用正确的 rclone 路径
+          export PATH=$PATH:~/.local/bin
+
           # 上传文件并显示进度
-          if rclone copy --progress \
+          if ~/.local/bin/rclone copy --progress \
                         --transfers 4 \
                         --checkers 8 \
                         --tpslimit 10 \
@@ -145,7 +162,7 @@ jobs:
             echo "$REMOTE:$UPLOAD_PATH/$FILENAME"
 
             # 验证文件是否已上传
-            if rclone lsf "$REMOTE:$UPLOAD_PATH/$FILENAME" &>/dev/null; then
+            if ~/.local/bin/rclone lsf "$REMOTE:$UPLOAD_PATH/$FILENAME" &>/dev/null; then
               echo "文件验证成功！"
             else
               echo "警告：无法验证已上传的文件"
